@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html>
+    <head>
+	<title></title>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+	<script>
+
+	    function ArrayWalker(arr, conf) {
+//		if(window.Worker){
+//		    alert("Worker Avaible!");
+//		} else {
+//		    alert("No Worker avaible!");
+//		}
+
+		conf = conf || {};
+
+		var _arr = arr || [],
+//			_ticksPerPart = conf.ticksPerPart || 5,
+			_maxPartTime = conf.maxPartTime || 10,
+			_nextPartTime = conf.nextPartTime || 3,
+			// Events
+			_onTick = [],
+			_onPart = [],
+			_onFinish = [],
+			_onStop = [],
+			_onAbort = [],
+			_curIndex = 0;
+
+		if (conf.onTick) {
+		    addEventListener('tick', conf.onTick);
+		}
+
+		if (conf.onPart) {
+		    addEventListener('part', conf.onPart);
+		}
+
+		if (conf.onFinish) {
+		    addEventListener('finish', conf.onFinish);
+		}
+
+		if (conf.onStop) {
+		    addEventListener('stop', conf.onStop);
+		}
+
+		if (conf.onAbort) {
+		    addEventListener('abort', conf.onAbort);
+		}
+
+		function _isFunction(wannabeFunction) {
+		    return typeof wannabeFunction === "function";
+		}
+
+		function _isNumber(wannabeNumber) {
+		    return typeof wannabeNumber === "number";
+		}
+
+		function _isArray(wannabeArray) {
+		    return wannabeArray instanceof Array;
+		}
+
+		this.run = function() {
+		    _nextPart();
+		};
+
+		function _nextPart() {
+		    var maxExecutionTime = (new Date()).getTime() + _maxPartTime;
+
+		    do {
+			_tick(_curIndex);
+		    } while (_curIndex++ < _arr.length && (new Date()).getTime() < maxExecutionTime);
+
+		    if (_curIndex < _arr.length) {
+			_fireEvent("part");
+			window.setTimeout(_nextPart, _nextPartTime);
+		    } else {
+			_fireEvent("finish");
+		    }
+		}
+
+		function _tick(tick) {
+		    for (var i = 0; i < _onTick.length; i++) {
+			_onTick[i].call(_arr[tick], _arr[tick], tick, _arr.length);
+		    }
+		}
+
+		function _fireEvent(evt) {
+		    var eventStack = null;
+		    switch (evt) {
+			case "tick":
+			    eventStack = _onTick;
+			    break;
+			case "part":
+			    eventStack = _onPart;
+			    break;
+			case "finish":
+			    eventStack = _onFinish;
+			    break;
+			case "stop":
+			    eventStack = _onStop;
+			    break;
+			case "abort":
+			    eventStack = _onAbort;
+			    break;
+			default:
+			    throw new EventException("Dude, i don't know the Event");
+			    break;
+		    }
+
+		    for (var i = 0; i < eventStack.length; i++) {
+			eventStack[i].call(null, _curIndex, _arr.length);
+		    }
+		}
+
+		this.addEventListener = function(event, callback) {
+		    if (_isFunction(callback)) {
+			switch (event) {
+			    case "tick":
+				_onTick.push(callback);
+				break;
+			    case "part":
+				_onPart.push(callback);
+				break;
+			    case "finish":
+				_onFinish.push(callback);
+				break;
+			    case "stop":
+				_onStop.push(callback);
+				break;
+			    case "abort":
+				_onAbort.push(callback);
+				break;
+			    default:
+				throw new EventException("Dude, i don't know the Event");
+				break;
+			}
+
+			return true;
+		    } else if (_isArray(callback)) {
+			for (var i = callback.length - 1; i >= 0; i--) {
+			    if (!_isFunction(callback[i])) {
+				throw new TypeError("Dude, one of the Items in the Array is not a Function! (Item: " + i + ")");
+			    }
+			}
+
+			for (i = 0; i < callback.length; i++) {
+			    addEventListener(event, callback[i]);
+			}
+
+			return true;
+		    } else {
+			throw new TypeError("Dude, use a Function or Function-Array instead!");
+		    }
+
+		    return false;
+		};
+
+		this.removeEventListener = function(event, callback) {
+		    if (_isFunction(callback)) {
+			var eventStack = null;
+			switch (event) {
+			    case "tick":
+				eventStack = _onTick;
+				break;
+			    case "part":
+				eventStack = _onPart;
+				break;
+			    case "finish":
+				eventStack = _onFinish;
+				break;
+			    case "stop":
+				eventStack = _onStop;
+				break;
+			    case "abort":
+				eventStack = _onAbort;
+				break;
+			    default:
+				throw new EventException("Dude, i don't know the Event");
+				break;
+			}
+
+			var callbackPosition = eventStack.indexOf(callback);
+			if (callbackPosition !== -1) {
+			    eventStack.splice(callbackPosition, 1);
+			    return true;
+			}
+
+		    } else if (_isArray(callback)) {
+			for (var i = callback.length - 1; i >= 0; i--) {
+			    if (!_isFunction(callback[i])) {
+				throw new TypeError("Dude, one of the Items in the Array is not a Function! (Item: " + i + ")");
+			    }
+			}
+
+			for (i = 0; i < callback.length; i++) {
+			    removeEventListener(event, callback[i]);
+			}
+			return true;
+		    } else {
+			throw new TypeError("Dude, use a Function or Function-Array instead!");
+		    }
+
+		    return false;
+		};
+
+		this.setArray = function(arr) {
+		    if (_isArray(arr)) {
+			_arr = arr;
+		    } else {
+			throw new TypeError("Dude, it's not an Array!");
+		    }
+		};
+
+		this.getArray = function() {
+		    return _arr;
+		};
+//
+//		this.setTicksPerPart = function(ticksPerPart) {
+//		    if (_isNumber(ticksPerPart)) {
+//			_ticksPerPart = ticksPerPart;
+//		    } else {
+//			throw new TypeError("Dude, it's not a Number!");
+//		    }
+//		};
+//
+//		this.getTicksPerPart = function() {
+//		    return _ticksPerPart;
+//		};
+
+		this.setMaxPartTime = function(maxPartTime) {
+		    if (_isNumber(maxPartTime)) {
+			_maxPartTime = maxPartTime;
+		    } else {
+			throw new TypeError("Dude, it's not a Number!");
+		    }
+		};
+
+		this.getMaxPartTime = function() {
+		    return _maxPartTime;
+		};
+
+	    }
+
+//	    ArrayWalker.prototype.ARRAY = 1;
+//	    ArrayWalker.prototype.TICKS_PER_PART = 2;
+//	    ArrayWalker.prototype.MAX_PART_TIME = 3;
+//	    ArrayWalker.prototype.EVENT_ON_TICK = 4;
+//	    ArrayWalker.prototype.EVENT_ON_PART = 5;
+
+	    document.addEventListener('DOMContentLoaded', function() {
+
+		var arr = [
+		    null, null, null, null, null, null, null, null, null, null
+		];
+
+		arr = arr.concat(arr, arr, arr, arr, arr, arr);
+		arr = arr.concat(arr, arr, arr, arr, arr, arr);
+		arr = arr.concat(arr, arr, arr, arr, arr, arr);
+		arr = arr.concat(arr, arr, arr, arr, arr, arr);
+//		arr = arr.concat(arr, arr, arr, arr, arr, arr);
+
+//		arr.forEach(function(v, i){
+//		    var para = document.createElement('p');
+//		    para.innerText = i;
+//		    document.body.appendChild(para);
+//		});
+
+
+		var arrayWalker = new ArrayWalker(arr);
+
+		arrayWalker.addEventListener("tick", function(val, i, length) {
+//		    webkitRequestAnimationFrame(function() {
+			document.getElementById("progress-value").innerText = i / length;
+			document.getElementsByTagName("progress")[0].value = i;
+//		    });
+		});
+
+		document.getElementsByTagName("progress")[0].max = arr.length;
+
+		var outerVar = "ll";
+		arrayWalker.addEventListener("tick", function(val, i, length) {
+		    if(this.toString().indexOf(outerVar)){
+			// Eine Mini-Produktsuche
+		    }
+		});
+
+		var averageTicks = document.getElementById('average-ticks'), lastInd = 0;
+		arrayWalker.addEventListener("part", function(curInd, len){
+		    if( averageTicks.innerText === "0" ){
+			averageTicks.innerText = curInd;
+		    } else {
+			averageTicks.innerText = ((parseInt(averageTicks.innerText) + (curInd - lastInd)) / 2);
+			console.log(averageTicks.innerText);
+		    }
+
+		    lastInd = curInd;
+		});
+
+		arrayWalker.addEventListener("finish", function(curInd, length){
+		    var parent = document.getElementsByTagName("progress")[0].parentNode;
+		    parent.removeChild(document.getElementsByTagName("progress")[0]);
+		    parent.innerText = 'Complett!';
+		});
+
+		arrayWalker.run();
+
+	    });
+
+	</script>
+
+    </head>
+    <body>
+	<p>
+	    Text zum markieren (:
+	</p>
+	<div style="margin: 200px auto 0;">
+	    <progress value="0.0"></progress>
+	    <p>
+		Progress Value:
+		<span id="progress-value">
+		    0.0
+		</span>
+	    </p>
+	    <p>
+		Progress Value:
+		<span id="average-ticks">0</span>
+	    </p>
+	</div>
+
+    </body>
+</html>
